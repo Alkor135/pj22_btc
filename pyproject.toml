@@ -3,7 +3,9 @@ name = "pj22-btc"
 version = "0.1.0"
 description = "Исследовательский проект для BTC-стратегий на данных MEXC и sentiment-сигналах."
 requires-python = ">=3.13"
+dependencies = [
+    "tzdata>=2026.2",
+]
 
 [tool.ruff]
 line-length = 100
-

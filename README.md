@@ -31,6 +31,8 @@ data/mexc/klines/BTCUSDT/5m/2026.db
 ## Конвертация 5m в дневные свечи MSK
 
 5m-свечи MEXC сохранены в UTC: `open_time_ms` совпадает с `open_time_utc`.
+UTC не имеет перехода на летнее или зимнее время. Для московской сессии
+используется IANA-таймзона `Europe/Moscow` через пакет `tzdata`.
 Дневные свечи строятся по московской сессии:
 
 ```text
@@ -46,9 +48,8 @@ data/mexc/klines/BTCUSDT/5m/2026.db
 .\.venv\Scripts\python.exe scripts\convert_5m_to_daily.py
 ```
 
-Результат сохраняется в годовые SQLite DB:
+Результат сохраняется в один SQLite DB-файл:
 
 ```text
-data/mexc/klines/BTCUSDT/1d_msk/2025.db
-data/mexc/klines/BTCUSDT/1d_msk/2026.db
+data/mexc/klines/BTCUSDT/daily_msk.db
 ```

@@ -13,6 +13,7 @@ from pj22_btc.daily_converter import (  # noqa: E402
     DailySQLiteKlineStore,
     aggregate_daily_klines,
     convert_5m_to_daily,
+    moscow_tz,
     session_date_for_open_time,
 )
 
@@ -137,9 +138,13 @@ class DailyConverterTests(unittest.TestCase):
 
         self.assertEqual(candles, [])
 
-    def test_daily_store_writes_year_database_by_session_date(self) -> None:
+    def test_moscow_tz_uses_named_zoneinfo_timezone(self) -> None:
+        self.assertEqual(moscow_tz().key, "Europe/Moscow")
+
+    def test_daily_store_writes_single_database_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            store = DailySQLiteKlineStore(Path(tmp))
+            db_path = Path(tmp) / "daily.db"
+            store = DailySQLiteKlineStore(db_path)
             candles = aggregate_daily_klines(
                 full_session_rows("2025-12-31T18:00:00Z", start_price=100),
                 include_incomplete=False,
@@ -148,13 +153,13 @@ class DailyConverterTests(unittest.TestCase):
             inserted = store.insert_daily_klines(candles)
 
             self.assertEqual(inserted, 1)
-            self.assertTrue((Path(tmp) / "2026.db").exists())
+            self.assertTrue(db_path.exists())
 
-    def test_convert_5m_to_daily_reads_yearly_sources_and_writes_daily_output(self) -> None:
+    def test_convert_5m_to_daily_reads_yearly_sources_and_writes_single_daily_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source_dir = root / "5m"
-            output_dir = root / "1d_msk"
+            output_db = root / "daily.db"
             source_dir.mkdir()
             create_source_db(
                 source_dir / "2025.db",
@@ -163,7 +168,7 @@ class DailyConverterTests(unittest.TestCase):
 
             summary = convert_5m_to_daily(
                 source_dir=source_dir,
-                output_dir=output_dir,
+                output_db=output_db,
                 symbol="BTCUSDT",
                 include_incomplete=False,
             )
@@ -171,7 +176,7 @@ class DailyConverterTests(unittest.TestCase):
             self.assertEqual(summary.source_rows, 288)
             self.assertEqual(summary.daily_rows, 1)
             self.assertEqual(summary.inserted_rows, 1)
-            with closing(sqlite3.connect(output_dir / "2025.db")) as conn:
+            with closing(sqlite3.connect(output_db)) as conn:
                 row = conn.execute(
                     "SELECT session_date, open_price, close_price, candle_count FROM daily_klines"
                 ).fetchone()

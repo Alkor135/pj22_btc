@@ -1,7 +1,7 @@
 r"""Конвертация пятиминутных свечей MEXC в дневные свечи по московской сессии.
 
 Модуль читает 5m-свечи из годовых SQLite DB, переводит UTC timestamps в
-московское время `MSK` (`UTC+03:00`) и собирает дневную свечу по правилу:
+московское время `Europe/Moscow` и собирает дневную свечу по правилу:
 `[21:00 предыдущего дня; 21:00 текущего дня)`.
 
 Свеча с open time ровно `21:00 MSK` не входит в завершающуюся дневную свечу,
@@ -22,7 +22,7 @@ from pj22_btc.daily_converter import convert_5m_to_daily
 
 summary = convert_5m_to_daily(
     source_dir=Path("data/mexc/klines/BTCUSDT/5m"),
-    output_dir=Path("data/mexc/klines/BTCUSDT/1d_msk"),
+    output_db=Path("data/mexc/klines/BTCUSDT/daily_msk.db"),
     symbol="BTCUSDT",
 )
 print(summary.inserted_rows)
@@ -34,15 +34,16 @@ from __future__ import annotations
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pj22_btc.mexc_downloader import SettingsError, _parse_simple_yaml
 
 
-MSK = timezone(timedelta(hours=3), "MSK")
+MOSCOW_TZ_NAME = "Europe/Moscow"
 FIVE_MINUTES_MS = 300_000
 EXPECTED_5M_CANDLES_PER_DAY = 288
 DAILY_INTERVAL = "1d_msk"
@@ -54,7 +55,7 @@ class DailyConverterConfig:
 
     symbol: str
     source_dir: Path
-    output_dir: Path
+    output_db: Path
     include_incomplete: bool = False
 
 
@@ -85,7 +86,7 @@ class DailyConversionSummary:
 
     symbol: str
     source_dir: Path
-    output_dir: Path
+    output_db: Path
     source_rows: int
     daily_rows: int
     inserted_rows: int
@@ -94,7 +95,7 @@ class DailyConversionSummary:
 
 def session_date_for_open_time(open_time_ms: int) -> date:
     """Возвращает дату дневной сессии для 5m-свечи по границе `21:00 MSK`."""
-    local_dt = datetime.fromtimestamp(open_time_ms / 1000, UTC).astimezone(MSK)
+    local_dt = datetime.fromtimestamp(open_time_ms / 1000, UTC).astimezone(moscow_tz())
     boundary = time(21, 0)
     if local_dt.time() >= boundary:
         return local_dt.date() + timedelta(days=1)
@@ -103,8 +104,9 @@ def session_date_for_open_time(open_time_ms: int) -> date:
 
 def session_bounds_ms(session_day: date) -> tuple[int, int, str, str]:
     """Возвращает UTC millisecond bounds и MSK-строки для дневной сессии."""
-    session_start = datetime.combine(session_day - timedelta(days=1), time(21, 0), MSK)
-    session_end = datetime.combine(session_day, time(21, 0), MSK)
+    tz = moscow_tz()
+    session_start = datetime.combine(session_day - timedelta(days=1), time(21, 0), tz)
+    session_end = datetime.combine(session_day, time(21, 0), tz)
     start_ms = int(session_start.astimezone(UTC).timestamp() * 1000)
     end_ms = int(session_end.astimezone(UTC).timestamp() * 1000)
     return start_ms, end_ms, session_start.isoformat(), session_end.isoformat()
@@ -184,85 +186,76 @@ def load_5m_klines(source_dir: Path, symbol: str) -> list[dict[str, Any]]:
 
 
 class DailySQLiteKlineStore:
-    """SQLite-хранилище дневных свечей с разбиением DB-файлов по годам."""
+    """SQLite-хранилище дневных свечей в одном DB-файле."""
 
-    def __init__(self, root_dir: Path) -> None:
-        """Создает хранилище дневных свечей и директорию для DB-файлов."""
-        self.root_dir = Path(root_dir)
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-
-    def db_path_for_session_date(self, session_date: str) -> Path:
-        """Возвращает путь к годовой DB по дате дневной сессии."""
-        return self.root_dir / f"{session_date[:4]}.db"
+    def __init__(self, db_path: Path) -> None:
+        """Создает хранилище дневных свечей и директорию для единого DB-файла."""
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def insert_daily_klines(self, candles: list[DailyKline]) -> int:
         """Записывает дневные свечи и возвращает число новых или обновленных строк."""
         changed = 0
-        grouped: dict[Path, list[DailyKline]] = {}
-        for candle in candles:
-            grouped.setdefault(self.db_path_for_session_date(candle.session_date), []).append(candle)
-
-        for db_path, db_candles in grouped.items():
-            with closing(sqlite3.connect(db_path)) as conn:
-                self._ensure_schema(conn)
-                before = conn.total_changes
-                conn.executemany(
-                    """
-                    INSERT INTO daily_klines (
-                        symbol,
-                        interval,
-                        session_date,
-                        session_start_ms,
-                        session_end_ms,
-                        session_start_msk,
-                        session_end_msk,
-                        open_price,
-                        high_price,
-                        low_price,
-                        close_price,
-                        volume,
-                        quote_asset_volume,
-                        candle_count,
-                        is_complete
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(symbol, interval, session_date) DO UPDATE SET
-                        session_start_ms = excluded.session_start_ms,
-                        session_end_ms = excluded.session_end_ms,
-                        session_start_msk = excluded.session_start_msk,
-                        session_end_msk = excluded.session_end_msk,
-                        open_price = excluded.open_price,
-                        high_price = excluded.high_price,
-                        low_price = excluded.low_price,
-                        close_price = excluded.close_price,
-                        volume = excluded.volume,
-                        quote_asset_volume = excluded.quote_asset_volume,
-                        candle_count = excluded.candle_count,
-                        is_complete = excluded.is_complete
-                    """,
-                    [
-                        (
-                            candle.symbol,
-                            candle.interval,
-                            candle.session_date,
-                            candle.session_start_ms,
-                            candle.session_end_ms,
-                            candle.session_start_msk,
-                            candle.session_end_msk,
-                            candle.open_price,
-                            candle.high_price,
-                            candle.low_price,
-                            candle.close_price,
-                            candle.volume,
-                            candle.quote_asset_volume,
-                            candle.candle_count,
-                            int(candle.is_complete),
-                        )
-                        for candle in db_candles
-                    ],
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            self._ensure_schema(conn)
+            before = conn.total_changes
+            conn.executemany(
+                """
+                INSERT INTO daily_klines (
+                    symbol,
+                    interval,
+                    session_date,
+                    session_start_ms,
+                    session_end_ms,
+                    session_start_msk,
+                    session_end_msk,
+                    open_price,
+                    high_price,
+                    low_price,
+                    close_price,
+                    volume,
+                    quote_asset_volume,
+                    candle_count,
+                    is_complete
                 )
-                changed += conn.total_changes - before
-                conn.commit()
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(symbol, interval, session_date) DO UPDATE SET
+                    session_start_ms = excluded.session_start_ms,
+                    session_end_ms = excluded.session_end_ms,
+                    session_start_msk = excluded.session_start_msk,
+                    session_end_msk = excluded.session_end_msk,
+                    open_price = excluded.open_price,
+                    high_price = excluded.high_price,
+                    low_price = excluded.low_price,
+                    close_price = excluded.close_price,
+                    volume = excluded.volume,
+                    quote_asset_volume = excluded.quote_asset_volume,
+                    candle_count = excluded.candle_count,
+                    is_complete = excluded.is_complete
+                """,
+                [
+                    (
+                        candle.symbol,
+                        candle.interval,
+                        candle.session_date,
+                        candle.session_start_ms,
+                        candle.session_end_ms,
+                        candle.session_start_msk,
+                        candle.session_end_msk,
+                        candle.open_price,
+                        candle.high_price,
+                        candle.low_price,
+                        candle.close_price,
+                        candle.volume,
+                        candle.quote_asset_volume,
+                        candle.candle_count,
+                        int(candle.is_complete),
+                    )
+                    for candle in candles
+                ],
+            )
+            changed += conn.total_changes - before
+            conn.commit()
         return changed
 
     @staticmethod
@@ -301,7 +294,7 @@ class DailySQLiteKlineStore:
 def convert_5m_to_daily(
     *,
     source_dir: Path,
-    output_dir: Path,
+    output_db: Path,
     symbol: str,
     include_incomplete: bool = False,
 ) -> DailyConversionSummary:
@@ -310,12 +303,12 @@ def convert_5m_to_daily(
     all_daily = aggregate_daily_klines(source_rows, include_incomplete=True)
     daily = [candle for candle in all_daily if candle.is_complete or include_incomplete]
     skipped = len(all_daily) - len(daily)
-    store = DailySQLiteKlineStore(output_dir)
+    store = DailySQLiteKlineStore(output_db)
     inserted = store.insert_daily_klines(daily)
     return DailyConversionSummary(
         symbol=symbol,
         source_dir=source_dir,
-        output_dir=output_dir,
+        output_db=output_db,
         source_rows=len(source_rows),
         daily_rows=len(daily),
         inserted_rows=inserted,
@@ -331,13 +324,18 @@ def load_daily_converter_config(path: Path) -> DailyConverterConfig:
     storage = _section(raw, "storage")
     daily = _section(raw, "daily")
     source_dir = _resolve_settings_path(settings_path, _required(storage, "sqlite_dir"))
-    output_dir = _resolve_settings_path(settings_path, _required(daily, "sqlite_dir"))
+    output_db = _resolve_settings_path(settings_path, _required(daily, "sqlite_path"))
     return DailyConverterConfig(
         symbol=str(_required(mexc, "symbol")).upper(),
         source_dir=source_dir,
-        output_dir=output_dir,
+        output_db=output_db,
         include_incomplete=bool(daily.get("include_incomplete", False)),
     )
+
+
+def moscow_tz() -> ZoneInfo:
+    """Возвращает IANA timezone `Europe/Moscow` из системной базы или пакета `tzdata`."""
+    return ZoneInfo(MOSCOW_TZ_NAME)
 
 
 def _is_complete_session(rows: list[dict[str, Any]], start_ms: int, end_ms: int) -> bool:

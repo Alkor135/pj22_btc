@@ -11,5 +11,5 @@ storage:
   sqlite_dir: data/mexc/klines/BTCUSDT/5m
 
 daily:
-  sqlite_dir: data/mexc/klines/BTCUSDT/1d_msk
+  sqlite_path: data/mexc/klines/BTCUSDT/daily_msk.db
   include_incomplete: false

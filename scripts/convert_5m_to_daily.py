@@ -1,8 +1,8 @@
 r"""Конвертация пятиминутных свечей BTCUSDT в дневные свечи по Москве.
 
 Скрипт читает годовые SQLite DB с 5m-свечами из пути `storage.sqlite_dir`
-в `settings.yaml`, переводит UTC-время свечей в московское время `MSK`
-(`UTC+03:00`) и собирает дневные свечи по правилу:
+в `settings.yaml`, переводит UTC-время свечей в таймзону `Europe/Moscow`
+и собирает дневные свечи по правилу:
 `[21:00 предыдущего дня; 21:00 текущего дня)`.
 
 Свеча ровно в `21:00 MSK` не входит в завершающуюся дневную свечу, а
@@ -60,7 +60,7 @@ def main() -> int:
         config = load_daily_converter_config(args.settings)
         summary = convert_5m_to_daily(
             source_dir=config.source_dir,
-            output_dir=config.output_dir,
+            output_db=config.output_db,
             symbol=config.symbol,
             include_incomplete=config.include_incomplete,
         )
@@ -71,7 +71,7 @@ def main() -> int:
     print("Конвертация 5m -> 1d_msk завершена.")
     print(f"Символ: {summary.symbol}")
     print(f"Источник 5m DB: {summary.source_dir}")
-    print(f"Папка daily DB: {summary.output_dir}")
+    print(f"Daily DB: {summary.output_db}")
     print(f"Прочитано 5m-свечей: {summary.source_rows}")
     print(f"Сформировано дневных свечей: {summary.daily_rows}")
     print(f"Записано/обновлено строк в SQLite: {summary.inserted_rows}")
