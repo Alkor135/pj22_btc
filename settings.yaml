@@ -1,0 +1,12 @@
+mexc:
+  symbol: BTCUSDT
+  interval: 1m
+  start_date: 2025-09-01
+  base_url: https://api.mexc.com
+  request_limit: 1000
+  request_pause_seconds: 0.2
+  request_timeout_seconds: 30
+
+storage:
+  sqlite_dir: data/mexc/klines/BTCUSDT/1m
+

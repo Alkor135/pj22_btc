@@ -206,6 +206,13 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Local market databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
 # PyPI configuration file
 .pypirc
 
