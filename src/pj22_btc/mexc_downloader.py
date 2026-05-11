@@ -58,6 +58,10 @@ class MexcAPIError(RuntimeError):
     """Ошибка ответа или доступности публичного API MEXC."""
 
 
+class MexcNoDataError(MexcAPIError):
+    """Ошибка пустого ответа MEXC для диапазона, где ожидались свечи."""
+
+
 @dataclass(frozen=True)
 class DownloaderConfig:
     """Настройки загрузчика, прочитанные из `settings.yaml`."""
@@ -372,6 +376,18 @@ def sync_klines(
         )
         batches += 1
         if not rows:
+            if fetched_rows == 0:
+                requested_from = datetime.fromtimestamp(cursor / 1000, UTC).strftime(
+                    "%Y-%m-%d %H:%M:%S UTC"
+                )
+                requested_to = datetime.fromtimestamp(request_end / 1000, UTC).strftime(
+                    "%Y-%m-%d %H:%M:%S UTC"
+                )
+                raise MexcNoDataError(
+                    "MEXC не вернул свечи для запрошенного диапазона "
+                    f"{requested_from} - {requested_to}. "
+                    "Для старых 1m-диапазонов REST endpoint может не отдавать историю."
+                )
             break
 
         klines = [

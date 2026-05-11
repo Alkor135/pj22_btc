@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from pj22_btc.mexc_downloader import (  # noqa: E402
     DownloaderConfig,
     Kline,
+    MexcNoDataError,
     MonthlySQLiteKlineStore,
     load_config,
     sync_klines,
@@ -157,6 +158,26 @@ class MexcDownloaderTests(unittest.TestCase):
                 october_count = october.execute("SELECT COUNT(*) FROM klines").fetchone()[0]
             self.assertEqual(september_count, 1)
             self.assertEqual(october_count, 1)
+
+    def test_sync_raises_clear_error_when_first_requested_range_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_dir = Path(tmp)
+            client = FakeMexcClient([[]])
+            config = DownloaderConfig(
+                symbol="BTCUSDT",
+                interval="1m",
+                start_date="2025-09-01",
+                sqlite_dir=db_dir,
+                request_limit=1000,
+                request_pause_seconds=0.0,
+            )
+
+            with self.assertRaisesRegex(MexcNoDataError, "MEXC не вернул свечи"):
+                sync_klines(
+                    config,
+                    client=client,
+                    now_ms=utc_ms("2025-09-01T02:00:00Z"),
+                )
 
     def test_load_config_reads_settings_yaml(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
