@@ -1,8 +1,8 @@
-r"""Загрузка одноминутных свечей BTCUSDT с MEXC в месячные SQLite-базы.
+r"""Загрузка пятиминутных свечей BTCUSDT с MEXC в годовые SQLite-базы.
 
 Скрипт читает настройки из `settings.yaml`, скачивает исторические свечи
-через публичный Spot API MEXC и сохраняет данные в SQLite-файлы по месяцам:
-`data/mexc/klines/BTCUSDT/1m/YYYY-MM.db`.
+через публичный Spot API MEXC и сохраняет данные в SQLite-файлы по годам:
+`data/mexc/klines/BTCUSDT/5m/YYYY.db`.
 
 Дата начала загрузки задается в `settings.yaml`:
 
@@ -49,7 +49,7 @@ def format_ms(value: int | None) -> str:
 def build_parser() -> argparse.ArgumentParser:
     """Создает CLI-парсер аргументов для выбора файла настроек."""
     parser = argparse.ArgumentParser(
-        description="Скачать одноминутные свечи BTCUSDT с MEXC в месячные SQLite-базы."
+        description="Скачать пятиминутные свечи BTCUSDT с MEXC в годовые SQLite-базы."
     )
     parser.add_argument(
         "--settings",

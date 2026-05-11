@@ -1,10 +1,10 @@
-r"""Библиотека загрузки одноминутных свечей MEXC и записи в SQLite.
+r"""Библиотека загрузки пятиминутных свечей MEXC и записи в SQLite.
 
 Этот модуль содержит переиспользуемую логику для:
 
 - чтения настроек из `settings.yaml`;
 - запроса свечей через публичный Spot API MEXC `GET /api/v3/klines`;
-- сохранения свечей в SQLite 3 базы, разбитые по месяцам;
+- сохранения свечей в SQLite 3 базы, разбитые по годам;
 - докачки новых свечей после последней уже сохраненной записи.
 
 Обычно этот файл не запускается напрямую. Для загрузки данных используется
@@ -46,7 +46,7 @@ from urllib.request import Request, urlopen
 
 MEXC_KLINES_PATH = "/api/v3/klines"
 SUPPORTED_INTERVALS_MS = {
-    "1m": 60_000,
+    "5m": 300_000,
 }
 
 
@@ -160,9 +160,9 @@ def interval_ms(interval: str) -> int:
         raise ValueError(f"Unsupported interval {interval!r}. Supported intervals: {supported}") from exc
 
 
-def month_key(open_time_ms: int) -> str:
-    """Возвращает ключ месяца `YYYY-MM` по времени открытия свечи."""
-    return datetime.fromtimestamp(open_time_ms / 1000, UTC).strftime("%Y-%m")
+def year_key(open_time_ms: int) -> str:
+    """Возвращает ключ года `YYYY` по времени открытия свечи."""
+    return datetime.fromtimestamp(open_time_ms / 1000, UTC).strftime("%Y")
 
 
 def closed_open_time_ms(now_ms: int, interval: str) -> int:
@@ -171,8 +171,8 @@ def closed_open_time_ms(now_ms: int, interval: str) -> int:
     return (now_ms // step_ms) * step_ms - step_ms
 
 
-class MonthlySQLiteKlineStore:
-    """SQLite-хранилище, которое раскладывает свечи по месячным DB-файлам."""
+class YearlySQLiteKlineStore:
+    """SQLite-хранилище, которое раскладывает свечи по годовым DB-файлам."""
 
     def __init__(self, root_dir: Path) -> None:
         """Создает хранилище и гарантирует существование корневой директории DB-файлов."""
@@ -180,11 +180,11 @@ class MonthlySQLiteKlineStore:
         self.root_dir.mkdir(parents=True, exist_ok=True)
 
     def db_path_for_open_time(self, open_time_ms: int) -> Path:
-        """Возвращает путь к месячной SQLite-базе для заданного open time свечи."""
-        return self.root_dir / f"{month_key(open_time_ms)}.db"
+        """Возвращает путь к годовой SQLite-базе для заданного open time свечи."""
+        return self.root_dir / f"{year_key(open_time_ms)}.db"
 
     def insert_klines(self, klines: list[Kline]) -> int:
-        """Записывает свечи в месячные SQLite-базы и возвращает число новых строк."""
+        """Записывает свечи в годовые SQLite-базы и возвращает число новых строк."""
         inserted = 0
         grouped: dict[Path, list[Kline]] = {}
         for kline in klines:
@@ -236,7 +236,7 @@ class MonthlySQLiteKlineStore:
         return inserted
 
     def latest_open_time_ms(self, symbol: str, interval: str) -> int | None:
-        """Ищет максимальный `open_time_ms` по всем месячным DB-файлам хранилища."""
+        """Ищет максимальный `open_time_ms` по всем годовым DB-файлам хранилища."""
         latest: int | None = None
         for db_path in sorted(self.root_dir.glob("*.db")):
             with closing(sqlite3.connect(db_path)) as conn:
@@ -342,7 +342,7 @@ def sync_klines(
     config: DownloaderConfig,
     *,
     client: MexcKlineClient | Any | None = None,
-    store: MonthlySQLiteKlineStore | None = None,
+    store: YearlySQLiteKlineStore | None = None,
     now_ms: int | None = None,
 ) -> DownloadSummary:
     """Докачивает свечи от последней сохраненной записи до последней закрытой свечи."""
@@ -353,7 +353,7 @@ def sync_klines(
         config.interval,
     )
     if store is None:
-        store = MonthlySQLiteKlineStore(config.sqlite_dir)
+        store = YearlySQLiteKlineStore(config.sqlite_dir)
     if client is None:
         client = MexcKlineClient(config.base_url, config.request_timeout_seconds)
 
@@ -386,7 +386,7 @@ def sync_klines(
                 raise MexcNoDataError(
                     "MEXC не вернул свечи для запрошенного диапазона "
                     f"{requested_from} - {requested_to}. "
-                    "Для старых 1m-диапазонов REST endpoint может не отдавать историю."
+                    f"Для старых {config.interval}-диапазонов REST endpoint может не отдавать историю."
                 )
             break
 

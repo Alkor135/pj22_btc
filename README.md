@@ -2,7 +2,7 @@
 
 Исследовательский Python-проект для торговли BTC на основе исторических данных и sentiment-сигналов локальных LLM.
 
-## Загрузка минутных данных MEXC
+## Загрузка пятиминутных данных MEXC
 
 Дата начала загрузки находится в [settings.yaml](C:/Users/Alkor/VSCode/pj22_btc/settings.yaml) в поле:
 
@@ -19,11 +19,11 @@ mexc:
 .\.venv\Scripts\python.exe scripts\download_mexc_klines.py
 ```
 
-Скрипт скачивает минутные свечи `BTCUSDT` с публичного Spot API MEXC и сохраняет их в SQLite 3 базы по месяцам:
+Скрипт скачивает пятиминутные свечи `BTCUSDT` с публичного Spot API MEXC и сохраняет их в SQLite 3 базы по годам:
 
 ```text
-data/mexc/klines/BTCUSDT/1m/2025-09.db
-data/mexc/klines/BTCUSDT/1m/2025-10.db
+data/mexc/klines/BTCUSDT/5m/2025.db
+data/mexc/klines/BTCUSDT/5m/2026.db
 ```
 
 При повторном запуске скрипт ищет последнюю сохраненную свечу и докачивает только новые данные. SQLite-файлы исключены из git через `.gitignore`.
