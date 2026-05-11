@@ -1,3 +1,34 @@
+r"""Библиотека загрузки одноминутных свечей MEXC и записи в SQLite.
+
+Этот модуль содержит переиспользуемую логику для:
+
+- чтения настроек из `settings.yaml`;
+- запроса свечей через публичный Spot API MEXC `GET /api/v3/klines`;
+- сохранения свечей в SQLite 3 базы, разбитые по месяцам;
+- докачки новых свечей после последней уже сохраненной записи.
+
+Обычно этот файл не запускается напрямую. Для загрузки данных используется
+CLI-скрипт `scripts/download_mexc_klines.py`.
+
+Пример запуска из корня проекта:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\download_mexc_klines.py
+```
+
+Пример использования из Python-кода:
+
+```python
+from pathlib import Path
+
+from pj22_btc.mexc_downloader import load_config, sync_klines
+
+config = load_config(Path("settings.yaml"))
+summary = sync_klines(config)
+print(summary.inserted_rows)
+```
+"""
+
 from __future__ import annotations
 
 import json
@@ -20,15 +51,17 @@ SUPPORTED_INTERVALS_MS = {
 
 
 class SettingsError(ValueError):
-    """Raised when settings.yaml cannot be read into downloader config."""
+    """Ошибка чтения или разбора `settings.yaml`."""
 
 
 class MexcAPIError(RuntimeError):
-    """Raised when MEXC returns an invalid or failed response."""
+    """Ошибка ответа или доступности публичного API MEXC."""
 
 
 @dataclass(frozen=True)
 class DownloaderConfig:
+    """Настройки загрузчика, прочитанные из `settings.yaml`."""
+
     symbol: str
     interval: str
     start_date: str
@@ -41,6 +74,8 @@ class DownloaderConfig:
 
 @dataclass(frozen=True)
 class Kline:
+    """Одна свеча MEXC в нормализованном виде для записи в SQLite."""
+
     symbol: str
     interval: str
     open_time_ms: int
@@ -54,6 +89,7 @@ class Kline:
 
     @classmethod
     def from_mexc_row(cls, symbol: str, interval: str, row: list[Any]) -> Kline:
+        """Преобразует одну строку ответа MEXC `/api/v3/klines` в объект `Kline`."""
         if len(row) < 8:
             raise ValueError(f"MEXC kline row must contain at least 8 fields, got {len(row)}")
         return cls(
@@ -71,15 +107,19 @@ class Kline:
 
     @property
     def open_time_utc(self) -> str:
+        """Возвращает время открытия свечи в ISO-формате UTC."""
         return datetime.fromtimestamp(self.open_time_ms / 1000, UTC).isoformat()
 
     @property
     def close_time_utc(self) -> str:
+        """Возвращает время закрытия свечи в ISO-формате UTC."""
         return datetime.fromtimestamp(self.close_time_ms / 1000, UTC).isoformat()
 
 
 @dataclass(frozen=True)
 class DownloadSummary:
+    """Краткая сводка результата одного запуска загрузчика."""
+
     symbol: str
     interval: str
     db_dir: Path
@@ -93,6 +133,7 @@ class DownloadSummary:
 
 
 def utc_ms(value: str) -> int:
+    """Преобразует дату или дату-время в UTC timestamp в миллисекундах."""
     if len(value) == 10:
         parsed_date = date.fromisoformat(value)
         parsed = datetime(parsed_date.year, parsed_date.month, parsed_date.day, tzinfo=UTC)
@@ -107,6 +148,7 @@ def utc_ms(value: str) -> int:
 
 
 def interval_ms(interval: str) -> int:
+    """Возвращает длительность поддерживаемого интервала свечи в миллисекундах."""
     try:
         return SUPPORTED_INTERVALS_MS[interval]
     except KeyError as exc:
@@ -115,23 +157,30 @@ def interval_ms(interval: str) -> int:
 
 
 def month_key(open_time_ms: int) -> str:
+    """Возвращает ключ месяца `YYYY-MM` по времени открытия свечи."""
     return datetime.fromtimestamp(open_time_ms / 1000, UTC).strftime("%Y-%m")
 
 
 def closed_open_time_ms(now_ms: int, interval: str) -> int:
+    """Возвращает open time последней полностью закрытой свечи для текущего времени."""
     step_ms = interval_ms(interval)
     return (now_ms // step_ms) * step_ms - step_ms
 
 
 class MonthlySQLiteKlineStore:
+    """SQLite-хранилище, которое раскладывает свечи по месячным DB-файлам."""
+
     def __init__(self, root_dir: Path) -> None:
+        """Создает хранилище и гарантирует существование корневой директории DB-файлов."""
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
 
     def db_path_for_open_time(self, open_time_ms: int) -> Path:
+        """Возвращает путь к месячной SQLite-базе для заданного open time свечи."""
         return self.root_dir / f"{month_key(open_time_ms)}.db"
 
     def insert_klines(self, klines: list[Kline]) -> int:
+        """Записывает свечи в месячные SQLite-базы и возвращает число новых строк."""
         inserted = 0
         grouped: dict[Path, list[Kline]] = {}
         for kline in klines:
@@ -183,6 +232,7 @@ class MonthlySQLiteKlineStore:
         return inserted
 
     def latest_open_time_ms(self, symbol: str, interval: str) -> int | None:
+        """Ищет максимальный `open_time_ms` по всем месячным DB-файлам хранилища."""
         latest: int | None = None
         for db_path in sorted(self.root_dir.glob("*.db")):
             with closing(sqlite3.connect(db_path)) as conn:
@@ -202,6 +252,7 @@ class MonthlySQLiteKlineStore:
 
     @staticmethod
     def _ensure_schema(conn: sqlite3.Connection) -> None:
+        """Создает таблицу и индекс для свечей, если их еще нет в SQLite-базе."""
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS klines (
@@ -230,6 +281,7 @@ class MonthlySQLiteKlineStore:
 
     @staticmethod
     def _has_klines_table(conn: sqlite3.Connection) -> bool:
+        """Проверяет, существует ли таблица `klines` в открытом SQLite-соединении."""
         row = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'klines'"
         ).fetchone()
@@ -237,7 +289,10 @@ class MonthlySQLiteKlineStore:
 
 
 class MexcKlineClient:
+    """Минимальный HTTP-клиент для публичного endpoint-а свечей MEXC."""
+
     def __init__(self, base_url: str = "https://api.mexc.com", timeout_seconds: float = 30.0) -> None:
+        """Создает клиент MEXC с базовым URL и timeout-ом запроса."""
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
@@ -250,6 +305,7 @@ class MexcKlineClient:
         end_ms: int,
         limit: int,
     ) -> list[list[Any]]:
+        """Запрашивает пачку свечей MEXC для указанного символа, интервала и диапазона."""
         params = urlencode(
             {
                 "symbol": symbol,
@@ -285,6 +341,7 @@ def sync_klines(
     store: MonthlySQLiteKlineStore | None = None,
     now_ms: int | None = None,
 ) -> DownloadSummary:
+    """Докачивает свечи от последней сохраненной записи до последней закрытой свечи."""
     step_ms = interval_ms(config.interval)
     start_ms = utc_ms(config.start_date)
     end_ms = closed_open_time_ms(
@@ -348,6 +405,7 @@ def sync_klines(
 
 
 def load_config(path: Path) -> DownloaderConfig:
+    """Читает `settings.yaml` и возвращает нормализованный `DownloaderConfig`."""
     settings_path = Path(path)
     raw = _parse_simple_yaml(settings_path)
     mexc = _section(raw, "mexc")
@@ -371,6 +429,7 @@ def load_config(path: Path) -> DownloaderConfig:
 
 
 def _section(settings: dict[str, Any], key: str) -> dict[str, Any]:
+    """Возвращает вложенную секцию настроек и проверяет, что это mapping."""
     value = settings.get(key, {})
     if not isinstance(value, dict):
         raise SettingsError(f"settings.yaml section {key!r} must be a mapping")
@@ -378,12 +437,14 @@ def _section(settings: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def _required(settings: dict[str, Any], key: str) -> Any:
+    """Возвращает обязательное значение из настроек или выбрасывает `SettingsError`."""
     if key not in settings:
         raise SettingsError(f"settings.yaml is missing required key {key!r}")
     return settings[key]
 
 
 def _parse_simple_yaml(path: Path) -> dict[str, Any]:
+    """Разбирает простой YAML-файл с вложенными словарями и скалярными значениями."""
     if not path.exists():
         raise SettingsError(f"Settings file not found: {path}")
 
@@ -415,6 +476,7 @@ def _parse_simple_yaml(path: Path) -> dict[str, Any]:
 
 
 def _parse_scalar(value: str) -> str | int | float | bool:
+    """Преобразует строковое YAML-значение в простой Python-скаляр."""
     unquoted = value.strip()
     if (unquoted.startswith('"') and unquoted.endswith('"')) or (
         unquoted.startswith("'") and unquoted.endswith("'")
