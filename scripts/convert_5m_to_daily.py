@@ -74,6 +74,7 @@ def main() -> int:
     print(f"Daily DB: {summary.output_db}")
     print(f"Прочитано 5m-свечей: {summary.source_rows}")
     print(f"Сформировано дневных свечей: {summary.daily_rows}")
+    print(f"Дата последней дневной свечи: {summary.latest_session_date or '-'}")
     print(f"Записано/обновлено строк в SQLite: {summary.inserted_rows}")
     print(f"Пропущено неполных сессий: {summary.skipped_incomplete_sessions}")
     return 0

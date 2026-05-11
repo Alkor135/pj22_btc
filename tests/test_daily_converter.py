@@ -175,6 +175,7 @@ class DailyConverterTests(unittest.TestCase):
 
             self.assertEqual(summary.source_rows, 288)
             self.assertEqual(summary.daily_rows, 1)
+            self.assertEqual(summary.latest_session_date, "2025-09-02")
             self.assertEqual(summary.inserted_rows, 1)
             with closing(sqlite3.connect(output_db)) as conn:
                 row = conn.execute(

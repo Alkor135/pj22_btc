@@ -89,6 +89,7 @@ class DailyConversionSummary:
     output_db: Path
     source_rows: int
     daily_rows: int
+    latest_session_date: str | None
     inserted_rows: int
     skipped_incomplete_sessions: int
 
@@ -311,6 +312,7 @@ def convert_5m_to_daily(
         output_db=output_db,
         source_rows=len(source_rows),
         daily_rows=len(daily),
+        latest_session_date=daily[-1].session_date if daily else None,
         inserted_rows=inserted,
         skipped_incomplete_sessions=skipped,
     )
