@@ -1,21 +1,21 @@
-# Crypto Research Pipeline Design
+# Дизайн исследовательского пайплайна для криптовалют
 
-Date: 2026-05-11
-Project: pj22_btc
+Дата: 2026-05-11
+Проект: pj22_btc
 
-## Goal
+## Цель
 
-Build a Python research project for cryptocurrency trading experiments, starting with BTC-focused workflows. The project should support reproducible scripts, testable core logic, and a clear separation between raw data, processed data, strategy code, backtest outputs, and reports.
+Создать Python-проект для исследований торговых стратегий на криптовалютах, в первую очередь на BTC. Проект должен поддерживать воспроизводимые скрипты, тестируемую основную логику и понятное разделение между сырыми данными, обработанными данными, кодом стратегий, результатами бэктестов и отчетами.
 
-## Scope
+## Область работ
 
-The first project scaffold will provide a research pipeline, not a live trading bot. It will be designed around local historical OHLCV data files first, with exchange/API ingestion left as a later extension. The initial code structure should make it easy to add indicators, strategies, and backtest metrics without mixing experiment scripts with reusable library code.
+Первый каркас проекта будет исследовательским пайплайном, а не ботом для реальной торговли. На старте проект будет работать с локальными историческими OHLCV-данными. Подключение биржевых API и автоматическая загрузка данных останутся следующими расширениями. Начальная структура должна позволять добавлять индикаторы, стратегии и метрики бэктеста без смешивания экспериментальных скриптов с переиспользуемым кодом.
 
-## Architecture
+## Архитектура
 
-The repository will be a Python package under `src/pj22_btc`. Reusable logic will live in package modules, while command-style workflows will live in `scripts/`. Tests will target the reusable modules directly.
+Репозиторий будет оформлен как Python-пакет в `src/pj22_btc`. Переиспользуемая логика будет находиться в модулях пакета, а запускаемые рабочие сценарии — в папке `scripts/`. Тесты будут проверять модули пакета напрямую.
 
-Planned structure:
+Планируемая структура:
 
 ```text
 pj22_btc/
@@ -42,36 +42,36 @@ pj22_btc/
     test_indicators.py
 ```
 
-## Components
+## Компоненты
 
-`data.py` will load and validate OHLCV data from local files. It should normalize expected columns such as timestamp, open, high, low, close, and volume.
+`data.py` будет загружать и проверять OHLCV-данные из локальных файлов. Модуль должен приводить данные к ожидаемой схеме с колонками `timestamp`, `open`, `high`, `low`, `close` и `volume`.
 
-`indicators.py` will contain deterministic indicator calculations, starting with simple moving averages or similarly small functions that are easy to verify.
+`indicators.py` будет содержать детерминированные расчеты индикаторов. Начать стоит с простых скользящих средних или похожих небольших функций, поведение которых легко проверить тестами.
 
-`strategy.py` will hold strategy rules. The first strategy can be intentionally simple, such as a moving-average crossover, so the project has a working end-to-end example.
+`strategy.py` будет содержать правила стратегий. Первая стратегия может быть специально простой, например пересечение скользящих средних, чтобы в проекте сразу был рабочий пример полного цикла.
 
-`backtest.py` will convert market data and strategy signals into trades, equity values, and summary metrics. The initial version should be conservative and transparent rather than feature-heavy.
+`backtest.py` будет преобразовывать рыночные данные и сигналы стратегии в сделки, кривую капитала и сводные метрики. Первая версия должна быть прозрачной и осторожной, без лишней сложности.
 
-`scripts/run_backtest.py` will load config, run the default workflow, and write output into `reports/`.
+`scripts/run_backtest.py` будет читать конфигурацию, запускать стандартный сценарий бэктеста и сохранять результат в `reports/`.
 
-## Data Flow
+## Поток данных
 
-Historical OHLCV files are stored in `data/raw/`. Processing functions read raw files, validate schema, optionally write cleaned data into `data/processed/`, then pass data into indicator and strategy functions. The backtest module calculates results and the script writes a human-readable report or CSV output under `reports/`.
+Исторические OHLCV-файлы хранятся в `data/raw/`. Функции обработки читают сырые файлы, проверяют схему, при необходимости сохраняют очищенные данные в `data/processed/`, затем передают данные в функции индикаторов и стратегий. Модуль бэктеста рассчитывает результаты, а скрипт сохраняет человекочитаемый отчет или CSV-результаты в `reports/`.
 
-## Error Handling
+## Обработка ошибок
 
-Data-loading functions should fail with clear exceptions when required columns are missing, files are absent, timestamps cannot be parsed, or numeric market columns contain invalid values. Scripts should surface these errors plainly so failed experiments are easy to diagnose.
+Функции загрузки данных должны выдавать понятные ошибки, если файл не найден, отсутствуют обязательные колонки, временные метки не удается разобрать или числовые рыночные колонки содержат некорректные значения. Скрипты должны показывать эти ошибки без маскировки, чтобы неудачные эксперименты было легко диагностировать.
 
-## Testing
+## Тестирование
 
-Tests should focus first on pure logic: indicator calculations, signal generation, and core backtest accounting. Small inline DataFrame fixtures are preferred for unit tests, because they keep expected behavior visible and avoid dependence on large market data files.
+На первом этапе тесты должны проверять чистую логику: расчеты индикаторов, генерацию сигналов и базовую бухгалтерию бэктеста. Для unit-тестов предпочтительны небольшие DataFrame-фикстуры прямо в тестах, чтобы ожидаемое поведение было видно без зависимости от больших файлов с рыночными данными.
 
-## Environment
+## Окружение
 
-The local virtual environment is `.venv`, created with:
+Локальное виртуальное окружение называется `.venv` и создано командой:
 
 ```powershell
 C:\Python\Python31313\python.exe -m venv .venv
 ```
 
-The initial dependency set should stay small: `pandas`, `numpy`, `pyyaml`, `pytest`, and optionally `ruff` for formatting/linting.
+Начальный набор зависимостей должен быть небольшим: `pandas`, `numpy`, `pyyaml`, `pytest` и, возможно, `ruff` для форматирования и линтинга.
