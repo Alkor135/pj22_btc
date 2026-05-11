@@ -9,3 +9,7 @@ mexc:
 
 storage:
   sqlite_dir: data/mexc/klines/BTCUSDT/5m
+
+daily:
+  sqlite_dir: data/mexc/klines/BTCUSDT/1d_msk
+  include_incomplete: false
