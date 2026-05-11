@@ -213,6 +213,9 @@ tempCodeRunnerFile.py
 *.sqlite
 *.sqlite3
 
+# Generated news markdown
+data/news_markdown/
+
 # PyPI configuration file
 .pypirc
 

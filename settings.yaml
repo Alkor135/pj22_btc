@@ -13,3 +13,8 @@ storage:
 daily:
   sqlite_path: data/mexc/klines/BTCUSDT/daily_msk.db
   include_incomplete: false
+
+news:
+  db_dir: C:\Users\Alkor\gd\db_rss
+  markdown_dir: data/news_markdown/BTCUSDT/daily_msk
+  crypto_title_regex: '(?ixu)(?:биткоин\w*|биткойн\w*|\bbitcoin\b|\bbtc\b|\bxbt\b|криптовалют\w*|крипторын\w*|крипто(?!н)|\bcrypto(?:currency|currencies)?\b|блокчейн\w*|\bblockchain\b|майнинг\w*|майнер\w*|стейблкоин\w*|\bstable\s*coin(?:s)?\b|\bstablecoin(?:s)?\b|\bethereum\b|\beth\b|\bether\b|эфир(?:а|е|ом|у)?\b|\bsolana\b|\bsol\b|\bxrp\b|\bripple\b|\bdogecoin\b|\bdoge\b|\btoncoin\b|\btrx\b|\blitecoin\b|\bbnb\b|\busdt\b|\busdc\b|\btether\b|\bcoinbase\b|\bbinance\b|\bbybit\b|\bokx\b|\bkraken\b|\bbitget\b|\bdefi\b|\bnft\b|\bweb3\b|токен\w*|\btoken(?:s|ization|ized)?\b|\bbitcoin\s+etf\b|\betf\s+на\s+биткоин\w*\b)'
