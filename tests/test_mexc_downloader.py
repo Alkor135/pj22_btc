@@ -118,7 +118,9 @@ class MexcDownloaderTests(unittest.TestCase):
             )
 
             self.assertEqual(client.calls[0][2], utc_ms("2025-09-01T00:05:00Z"))
+            self.assertEqual(client.calls[0][3], utc_ms("2025-09-01T00:20:00Z"))
             self.assertEqual(summary.inserted_rows, 2)
+            self.assertEqual(summary.last_close_time_ms, utc_ms("2025-09-01T00:15:00Z") - 1)
             self.assertEqual(store.latest_open_time_ms("BTCUSDT", "5m"), utc_ms("2025-09-01T00:10:00Z"))
 
     def test_sync_writes_records_to_their_year_database_files(self) -> None:

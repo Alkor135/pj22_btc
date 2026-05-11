@@ -131,6 +131,7 @@ class DownloadSummary:
     end_ms: int
     first_requested_ms: int | None
     last_open_time_ms: int | None
+    last_close_time_ms: int | None
     fetched_rows: int
     inserted_rows: int
     batches: int
@@ -364,9 +365,10 @@ def sync_klines(
     inserted_rows = 0
     batches = 0
     last_open_time = latest
+    last_close_time = latest + step_ms if latest is not None else None
 
     while cursor <= end_ms:
-        request_end = min(end_ms, cursor + step_ms * config.request_limit - step_ms)
+        request_end = min(end_ms + step_ms, cursor + step_ms * config.request_limit)
         rows = client.fetch_klines(
             symbol=config.symbol,
             interval=config.interval,
@@ -400,7 +402,9 @@ def sync_klines(
 
         fetched_rows += len(klines)
         inserted_rows += store.insert_klines(klines)
-        last_open_time = max(kline.open_time_ms for kline in klines)
+        last_kline = max(klines, key=lambda kline: kline.open_time_ms)
+        last_open_time = last_kline.open_time_ms
+        last_close_time = last_kline.close_time_ms
         cursor = last_open_time + step_ms
 
         if config.request_pause_seconds > 0 and cursor <= end_ms:
@@ -414,6 +418,7 @@ def sync_klines(
         end_ms=end_ms,
         first_requested_ms=first_requested,
         last_open_time_ms=last_open_time,
+        last_close_time_ms=last_close_time,
         fetched_rows=fetched_rows,
         inserted_rows=inserted_rows,
         batches=batches,
