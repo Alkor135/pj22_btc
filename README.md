@@ -94,6 +94,13 @@ data/sentiment/BTCUSDT/<model_key>/sentiment_scores.pkl
 модели. По умолчанию P/L считается по колонке `next_body`; для сравнения
 реакции open-to-open можно указать `--target-column next_open_to_open`.
 
+Полный последовательный pipeline:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_pipeline.py
+.\.venv\Scripts\python.exe scripts\run_pipeline.py --all-targets --open-reports
+```
+
 Групповая статистика по значениям sentiment:
 
 ```powershell
@@ -122,4 +129,10 @@ reports/sentiment/BTCUSDT/<model_key>/group_stats/
 reports/sentiment/BTCUSDT/<model_key>/rules/
 reports/sentiment/BTCUSDT/<model_key>/backtest/
 reports/sentiment/BTCUSDT/<model_key>/plots/
+```
+
+Открыть все HTML-отчеты в одном новом окне Google Chrome:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\open_html_reports.py
 ```

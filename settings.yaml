@@ -41,6 +41,9 @@ sentiment:
     qwen2.5_14b:
       enabled: true
       ollama_model: qwen2.5:14b
+    qwen2.5_7b:
+      enabled: true
+      ollama_model: qwen2.5:7b
     gemma4_e2b:
       enabled: true
       ollama_model: gemma4:e2b
