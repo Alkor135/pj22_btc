@@ -53,3 +53,73 @@ UTC не имеет перехода на летнее или зимнее вр�
 ```text
 data/mexc/klines/BTCUSDT/daily_msk.db
 ```
+
+## Расчет sentiment-оценок
+
+Prompt, список моделей Ollama, кэш и выходная папка задаются в
+[settings.yaml](C:/Users/Alkor/VSCode/pj22_btc/settings.yaml) в секции `sentiment`.
+
+Запуск всех моделей с `enabled: true`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_sentiment_scores.py
+```
+
+Запуск конкретных моделей:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_sentiment_scores.py --models gemma3_12b,gpt-oss_20b
+```
+
+Результат сохраняется отдельно по каждой модели:
+
+```text
+data/sentiment/BTCUSDT/<model_key>/sentiment_scores.pkl
+```
+
+Во время долгого прогона скрипт показывает progress bar с ETA. PKL-чекпоинт
+сохраняется каждые `sentiment.save_every` обработанных файлов, по умолчанию
+каждые 10. Если модель вернула нестрогий ответ или запрос упал, скрипт делает
+до `sentiment.max_retry_passes` дополнительных проходов по проблемным файлам.
+В progress bar также выводится размещение модели из `ollama ps`, например
+`processor=100% GPU` или `processor=47%/53% CPU/GPU`.
+
+Для воспроизводимости запросы к Ollama выполняются с `stream=false` и
+детерминированными options: `temperature=0`, `top_p=1`, `top_k=1`, `seed=42`.
+Эти параметры сохраняются в PKL в колонке `generation_options`.
+
+## Исследование sentiment-логики
+
+После расчета `sentiment_scores.pkl` можно проверить торговую логику по каждой
+модели. По умолчанию P/L считается по колонке `next_body`; для сравнения
+реакции open-to-open можно указать `--target-column next_open_to_open`.
+
+Групповая статистика по значениям sentiment:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_sentiment_group_stats.py
+.\.venv\Scripts\python.exe scripts\create_sentiment_group_stats.py --models gemma3_12b --target-column next_open_to_open
+```
+
+Генерация рекомендованных правил:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_rules_recommendation.py
+.\.venv\Scripts\python.exe scripts\create_rules_recommendation.py --models gemma3_12b --target-column next_open_to_open
+```
+
+Backtest по rules YAML:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_sentiment_backtest.py
+.\.venv\Scripts\python.exe scripts\run_sentiment_backtest.py --models gemma3_12b --target-column next_open_to_open
+```
+
+Результаты сохраняются отдельно по моделям:
+
+```text
+reports/sentiment/BTCUSDT/<model_key>/group_stats/
+reports/sentiment/BTCUSDT/<model_key>/rules/
+reports/sentiment/BTCUSDT/<model_key>/backtest/
+reports/sentiment/BTCUSDT/<model_key>/plots/
+```

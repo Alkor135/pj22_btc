@@ -216,6 +216,10 @@ tempCodeRunnerFile.py
 # Generated news markdown
 data/news_markdown/
 
+# Generated sentiment artifacts
+data/sentiment/
+reports/sentiment/
+
 # PyPI configuration file
 .pypirc
 

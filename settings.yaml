@@ -18,3 +18,40 @@ news:
   db_dir: C:\Users\Alkor\gd\db_rss
   markdown_dir: data/news_markdown/BTCUSDT/daily_msk
   crypto_title_regex: '(?ixu)(?:биткоин\w*|биткойн\w*|\bbitcoin\b|\bbtc\b|\bxbt\b|криптовалют\w*|крипторын\w*|крипто(?!н)|\bcrypto(?:currency|currencies)?\b|блокчейн\w*|\bblockchain\b|майнинг\w*|майнер\w*|стейблкоин\w*|\bstable\s*coin(?:s)?\b|\bstablecoin(?:s)?\b|\bethereum\b|\beth\b|\bether\b|эфир(?:а|е|ом|у)?\b|\bsolana\b|\bsol\b|\bxrp\b|\bripple\b|\bdogecoin\b|\bdoge\b|\btoncoin\b|\btrx\b|\blitecoin\b|\bbnb\b|\busdt\b|\busdc\b|\btether\b|\bcoinbase\b|\bbinance\b|\bbybit\b|\bokx\b|\bkraken\b|\bbitget\b|\bdefi\b|\bnft\b|\bweb3\b|токен\w*|\btoken(?:s|ization|ized)?\b|\bbitcoin\s+etf\b|\betf\s+на\s+биткоин\w*\b)'
+
+sentiment:
+  output_dir: data/sentiment/BTCUSDT
+  use_cache: true
+  keep_alive: 5m
+  ollama_timeout_seconds: 180
+  token_limit: 16000
+  save_every: 10
+  max_retry_passes: 3
+  prompt_template: "Оцени влияние новостей на {symbol} от -10 до +10.\n\nТекст новости:\n\n{news_text}\n\nВерни только одно число от -10 до +10 без пояснений."
+  models:
+    gemma3_12b:
+      enabled: true
+      ollama_model: gemma3:12b
+    gpt-oss_20b:
+      enabled: true
+      ollama_model: gpt-oss:20b
+    qwen3_14b:
+      enabled: true
+      ollama_model: qwen3:14b
+    qwen2.5_14b:
+      enabled: true
+      ollama_model: qwen2.5:14b
+    gemma4_e2b:
+      enabled: true
+      ollama_model: gemma4:e2b
+    gemma4_e4b:
+      enabled: true
+      ollama_model: gemma4:e4b
+
+reports:
+  output_dir: reports/sentiment/BTCUSDT
+  quantity: 1
+  notional_capital: 10000
+  target_column: next_body
+  date_from: 2025-09-01
+  date_to: 2027-01-01
