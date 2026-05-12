@@ -206,6 +206,20 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Local market databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Generated news markdown
+data/news_markdown/
+
+# Generated sentiment artifacts
+data/sentiment/
+reports/sentiment/
+
 # PyPI configuration file
 .pypirc
 
