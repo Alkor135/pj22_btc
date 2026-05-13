@@ -16,6 +16,7 @@ r"""Последовательный оркестратор исследоват
 .\.venv\Scripts\python.exe scripts\run_pipeline.py --dry-run
 .\.venv\Scripts\python.exe scripts\run_pipeline.py --models gemma3_12b,gpt-oss_20b
 .\.venv\Scripts\python.exe scripts\run_pipeline.py --all-targets --open-reports
+.\.venv\Scripts\python.exe scripts\run_pipeline.py --models gemma3_12b,qwen2.5_7b,gemma4_e2b,gemma4_e4b
 ```
 """
 
