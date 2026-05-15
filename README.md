@@ -122,6 +122,34 @@ Backtest по rules YAML:
 .\.venv\Scripts\python.exe scripts\run_sentiment_backtest.py --models gemma3_12b --target-column next_open_to_open
 ```
 
+Walk-forward backtest без look-ahead:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --models gemma3_12b --target-column next_open_to_open
+```
+
+Для каждой тестовой даты правила строятся только на окне
+`D - walk_forward.train_months` ... `D - 1 день`; сам тестовый день в обучение
+не попадает. Сводный HTML/XLSX отчет можно пересобрать по уже готовым CSV:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_walk_forward_report.py
+```
+
+Сравнение ordinary backtest и walk-forward по двум target-колонкам:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_backtest_comparison_report.py
+.\.venv\Scripts\python.exe scripts\create_backtest_comparison_report.py --models gemma3_12b,qwen3_14b --no-open
+```
+
+По умолчанию итоговый HTML открывается в Chrome в новом окне и сохраняется в:
+
+```text
+reports/backtest_comparison/backtest_vs_walk_forward.html
+```
+
 Результаты сохраняются отдельно по моделям:
 
 ```text
@@ -129,6 +157,7 @@ reports/sentiment/BTCUSDT/<model_key>/group_stats/
 reports/sentiment/BTCUSDT/<model_key>/rules/
 reports/sentiment/BTCUSDT/<model_key>/backtest/
 reports/sentiment/BTCUSDT/<model_key>/plots/
+reports/walk_forward/BTCUSDT/<model_key>/<target_column>/
 ```
 
 Открыть все HTML-отчеты в одном новом окне Google Chrome:

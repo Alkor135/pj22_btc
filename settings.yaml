@@ -58,3 +58,14 @@ reports:
   target_column: next_body
   date_from: 2025-09-01
   date_to: 2027-01-01
+
+walk_forward:
+  output_dir: reports/walk_forward
+  quantity: 1
+  target_column: next_body
+  backtest_start_date: 2025-09-01
+  backtest_end_date: 2027-01-01
+  train_months: 6
+  save_daily_artifacts: false
+  min_train_rows: 20
+  keep_going: true

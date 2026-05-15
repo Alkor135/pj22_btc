@@ -219,6 +219,7 @@ data/news_markdown/
 # Generated sentiment artifacts
 data/sentiment/
 reports/sentiment/
+reports/walk_forward/
 
 # PyPI configuration file
 .pypirc
